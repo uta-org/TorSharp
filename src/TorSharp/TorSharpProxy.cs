@@ -14,8 +14,14 @@ namespace Knapcode.TorSharp
     public interface ITorSharpProxy : IDisposable
     {
         Task ConfigureAndStartAsync();
+
         Task GetNewIdentityAsync();
+
         void Stop();
+
+        event DataReceivedEventHandler OnOutput;
+
+        event DataReceivedEventHandler OnError;
     }
 
     /// <summary>
@@ -47,6 +53,7 @@ namespace Knapcode.TorSharp
                 case ToolRunnerType.Simple:
                     _toolRunner = new SimpleToolRunner();
                     break;
+
                 case ToolRunnerType.VirtualDesktop:
                     if (settings.OSPlatform != TorSharpOSPlatform.Windows)
                     {
@@ -54,6 +61,7 @@ namespace Knapcode.TorSharp
                     }
                     _toolRunner = new VirtualDesktopToolRunner();
                     break;
+
                 default:
                     throw new NotImplementedException($"The '{settings.ToolRunnerType}' tool runner is not supported.");
             }
@@ -133,6 +141,20 @@ namespace Knapcode.TorSharp
             }
         }
 
+        public event DataReceivedEventHandler OnOutput;
+
+        public event DataReceivedEventHandler OnError;
+
+        internal void HandleOnOutput(object sender, DataReceivedEventArgs e)
+        {
+            OnOutput?.Invoke(sender, e);
+        }
+
+        internal void HandleOnError(object sender, DataReceivedEventArgs e)
+        {
+            OnError?.Invoke(sender, e);
+        }
+
         private async Task<Tool> ExtractAsync(ToolSettings toolSettings)
         {
             var tool = ToolUtility.GetLatestToolOrNull(_settings, toolSettings);
@@ -156,7 +178,7 @@ namespace Knapcode.TorSharp
         {
             var configurer = new LineByLineConfigurer(configurationDictionary, new ConfigurationFormat());
             await configurer.ApplySettings(tool, _settings).ConfigureAwait(false);
-            await _toolRunner.StartAsync(tool).ConfigureAwait(false);
+            await _toolRunner.StartAsync(tool, this).ConfigureAwait(false);
             return tool;
         }
 

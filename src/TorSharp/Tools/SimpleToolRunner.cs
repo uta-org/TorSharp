@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Knapcode.TorSharp.Tools
@@ -16,7 +17,7 @@ namespace Knapcode.TorSharp.Tools
             Dispose(false);
         }
 
-        public Task StartAsync(Tool tool)
+        public Task StartAsync(Tool tool, ITorSharpProxy proxy)
         {
             // start the desired process
             var arguments = string.Join(" ", tool.Settings.GetArguments(tool));
@@ -38,17 +39,25 @@ namespace Knapcode.TorSharp.Tools
                 startInfo.EnvironmentVariables[pair.Key] = pair.Value;
             }
 
-            Process process = Process.Start(startInfo);
-            
-            process.OutputDataReceived += (object sender, DataReceivedEventArgs e) =>
-            {
-                Console.WriteLine(e.Data);
-            };
+            var process = Process.Start(startInfo);
 
-            process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
-            {
-                Console.Error.WriteLine(e.Data);
-            };
+            if (proxy.GetType().GetField("OnOutput", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(proxy) is
+                DataReceivedEventHandler onOutput)
+                process.OutputDataReceived += onOutput;
+            else
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    Console.WriteLine(e.Data);
+                };
+
+            if (proxy.GetType().GetField("OnError", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(proxy) is
+                DataReceivedEventHandler onError)
+                process.ErrorDataReceived += onError;
+            else
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    Console.Error.WriteLine(e.Data);
+                };
 
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();

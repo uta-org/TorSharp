@@ -17,12 +17,12 @@ namespace Knapcode.TorSharp.Tools
         private readonly object _processIdsLock = new object();
         private readonly HashSet<int> _processIds = new HashSet<int>();
 
-        public Task StartAsync(Tool tool)
+        public Task StartAsync(Tool tool, ITorSharpProxy proxy)
         {
             IntPtr desktopHandle = WindowsUtility.CreateDesktop(DesktopName);
 
             // embrace the madness -- it seems Windows always wants exactly one instance of "ctfmon.exe" in the new desktop
-            var ctfmonStartInfo = new ProcessStartInfo {FileName = "ctfmon.exe", WorkingDirectory = "."};
+            var ctfmonStartInfo = new ProcessStartInfo { FileName = "ctfmon.exe", WorkingDirectory = "." };
             WindowsApi.PROCESS_INFORMATION ctfmonProcess = WindowsUtility.CreateProcess(ctfmonStartInfo, DesktopName);
             AssociateWithJob(ctfmonProcess, false);
 
@@ -34,10 +34,35 @@ namespace Knapcode.TorSharp.Tools
                 Arguments = arguments,
                 WorkingDirectory = tool.WorkingDirectory
             };
+
+            // TODO: Implement OutputDataReceived and ErrorDataReceived for WindowsApi.PROCESS_INFORMATION
+
+            /*
+             *
+                if (proxy.GetType().GetField("OnOutput", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(proxy) is
+                    DataReceivedEventHandler onOutput)
+                    process.OutputDataReceived += onOutput;
+                else
+                    process.OutputDataReceived += (sender, e) =>
+                    {
+                        Console.WriteLine(e.Data);
+                    };
+
+                if (proxy.GetType().GetField("OnError", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(proxy) is
+                    DataReceivedEventHandler onError)
+                    process.ErrorDataReceived += onError;
+                else
+                    process.ErrorDataReceived += (sender, e) =>
+                    {
+                        Console.Error.WriteLine(e.Data);
+                    };
+             *
+             */
+
             WindowsApi.PROCESS_INFORMATION targetProcess = WindowsUtility.CreateProcess(startInfo, DesktopName);
             AssociateWithJob(targetProcess, true);
 
-            return Task.FromResult((object) null);
+            return Task.FromResult((object)null);
         }
 
         private void AssociateWithJob(WindowsApi.PROCESS_INFORMATION processInformation, bool throwOnError)
@@ -50,14 +75,14 @@ namespace Knapcode.TorSharp.Tools
                     {
                         _jobHandle = WindowsApi.CreateJobObject(IntPtr.Zero, null);
 
-                        var basic = new WindowsApi.JOBOBJECT_BASIC_LIMIT_INFORMATION {LimitFlags = WindowsApi.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE};
-                        var extended = new WindowsApi.JOBOBJECT_EXTENDED_LIMIT_INFORMATION {BasicLimitInformation = basic};
+                        var basic = new WindowsApi.JOBOBJECT_BASIC_LIMIT_INFORMATION { LimitFlags = WindowsApi.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE };
+                        var extended = new WindowsApi.JOBOBJECT_EXTENDED_LIMIT_INFORMATION { BasicLimitInformation = basic };
 
-                        int length = Marshal.SizeOf(typeof (WindowsApi.JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+                        int length = Marshal.SizeOf(typeof(WindowsApi.JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
                         IntPtr extendedPointer = Marshal.AllocHGlobal(length);
                         Marshal.StructureToPtr(extended, extendedPointer, false);
 
-                        if (!WindowsApi.SetInformationJobObject(_jobHandle, WindowsApi.JOBOBJECTINFOCLASS.ExtendedLimitInformation, extendedPointer, (uint) length))
+                        if (!WindowsApi.SetInformationJobObject(_jobHandle, WindowsApi.JOBOBJECTINFOCLASS.ExtendedLimitInformation, extendedPointer, (uint)length))
                         {
                             throw new TorSharpException($"Unable to set information on the job object. Error: {WindowsUtility.GetLastErrorMessage()}.");
                         }

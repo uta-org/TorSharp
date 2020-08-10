@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Reflection;
 using System.Threading.Tasks;
+using Knapcode.TorSharp.PInvoke;
 
 namespace Knapcode.TorSharp.Tools
 {
@@ -41,8 +41,8 @@ namespace Knapcode.TorSharp.Tools
 
             var process = Process.Start(startInfo);
 
-            if (proxy.GetType().GetField("OnOutput", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(proxy) is
-                DataReceivedEventHandler onOutput)
+            var onOutput = proxy.GetHandler(true);
+            if (onOutput != null)
                 process.OutputDataReceived += onOutput;
             else
                 process.OutputDataReceived += (sender, e) =>
@@ -50,8 +50,8 @@ namespace Knapcode.TorSharp.Tools
                     Console.WriteLine(e.Data);
                 };
 
-            if (proxy.GetType().GetField("OnError", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(proxy) is
-                DataReceivedEventHandler onError)
+            var onError = proxy.GetHandler(false);
+            if (onError != null)
                 process.ErrorDataReceived += onError;
             else
                 process.ErrorDataReceived += (sender, e) =>

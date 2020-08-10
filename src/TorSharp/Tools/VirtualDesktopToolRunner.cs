@@ -23,7 +23,7 @@ namespace Knapcode.TorSharp.Tools
 
             // embrace the madness -- it seems Windows always wants exactly one instance of "ctfmon.exe" in the new desktop
             var ctfmonStartInfo = new ProcessStartInfo { FileName = "ctfmon.exe", WorkingDirectory = "." };
-            WindowsApi.PROCESS_INFORMATION ctfmonProcess = WindowsUtility.CreateProcess(ctfmonStartInfo, DesktopName);
+            WindowsApi.PROCESS_INFORMATION ctfmonProcess = WindowsUtility.CreateProcess(proxy, ctfmonStartInfo, DesktopName);
             AssociateWithJob(ctfmonProcess, false);
 
             // start the desired process
@@ -35,31 +35,7 @@ namespace Knapcode.TorSharp.Tools
                 WorkingDirectory = tool.WorkingDirectory
             };
 
-            // TODO: Implement OutputDataReceived and ErrorDataReceived for WindowsApi.PROCESS_INFORMATION
-
-            /*
-             *
-                if (proxy.GetType().GetField("OnOutput", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(proxy) is
-                    DataReceivedEventHandler onOutput)
-                    process.OutputDataReceived += onOutput;
-                else
-                    process.OutputDataReceived += (sender, e) =>
-                    {
-                        Console.WriteLine(e.Data);
-                    };
-
-                if (proxy.GetType().GetField("OnError", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(proxy) is
-                    DataReceivedEventHandler onError)
-                    process.ErrorDataReceived += onError;
-                else
-                    process.ErrorDataReceived += (sender, e) =>
-                    {
-                        Console.Error.WriteLine(e.Data);
-                    };
-             *
-             */
-
-            WindowsApi.PROCESS_INFORMATION targetProcess = WindowsUtility.CreateProcess(startInfo, DesktopName);
+            WindowsApi.PROCESS_INFORMATION targetProcess = WindowsUtility.CreateProcess(proxy, startInfo, DesktopName);
             AssociateWithJob(targetProcess, true);
 
             return Task.FromResult((object)null);
